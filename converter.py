@@ -1,8 +1,14 @@
 from netaddr import IPNetwork
 import requests
 import configparser
+import boto3
 
 print 'STARTING'
+
+client = boto3.client('waf-regional')
+response = client.list_ip_sets()
+print response
+
 count = 0
 
 #config file
@@ -31,8 +37,8 @@ for line in lines:
 
 		net = IPNetwork(cidr)
 		subnets = net.subnet(cidrRange)
-		for subnet in subnets:
-			count += 1
-			print subnet
+		#for subnet in subnets:
+		#	count += 1
+		#	print subnet
 
 print 'FINISHING TOTAL: ' + str(count) 
