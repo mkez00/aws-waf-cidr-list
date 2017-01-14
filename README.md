@@ -1,5 +1,9 @@
 # aws-waf-cidr-list
 
+## Reminder
+
+Still in development...
+
 ## Purpose
 
 AWS WAF does not provide the ability of adding a full range of CIDR ranges in its IP Addresses Conditions.  This utility will
