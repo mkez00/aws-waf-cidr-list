@@ -15,3 +15,10 @@ AWS WAF does not provide the ability to add a full range of CIDR ranges in its I
 ## SpamHaus
 
 Currently for the purposes of my project I use SpamHaus exclusively.  Feel free to modify the script to suit your needs.
+
+## Use
+
+The configuration file contains properties that can be set.  Passing command line arguments can be done as well:
+```
+python converter.py <IP_SET_GUID> <AWS_CLI_PROFILE>
+```
