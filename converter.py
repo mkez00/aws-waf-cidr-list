@@ -2,6 +2,7 @@ from netaddr import IPNetwork
 import requests
 import configparser
 import boto3
+import sys
 
 
 # action = INSERT | DELETE
@@ -56,8 +57,15 @@ def get_config_parser():
     return config
 
 
-def get_boto_client():
+def get_profile():
     profile = get_config_parser()['DEFAULT']['Profile']
+    if len(sys.argv) > 2:
+        profile = str(sys.argv[2])
+    return profile
+
+
+def get_boto_client():
+    profile = get_profile()
     if profile:
         print 'Using profile: ' + profile
         session = boto3.Session(profile_name=profile)
@@ -113,9 +121,16 @@ def batch_update(client, ip_set_id, updates_list):
         update_ip_set_bulk(client, ip_set_id, batch_update_list)
 
 
+def get_ip_set_id():
+    ip_set_id = get_config_parser()['DEFAULT']['IpSetId']
+    if len(sys.argv) > 1:
+        ip_set_id = str(sys.argv[1])
+    return ip_set_id
+
+
 def main():
     client = get_boto_client()
-    ip_set_id = get_config_parser()['DEFAULT']['IpSetId']
+    ip_set_id = get_ip_set_id()
     remove_ip_set_entries(client, ip_set_id)
     insert_into_ip_set_from_drop_list(client, ip_set_id)
 
