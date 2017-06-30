@@ -4,149 +4,116 @@ import configparser
 import boto3
 
 
-def createUpdate(ipAddr):
+# action = INSERT | DELETE
+def create_update(ip_address, action):
     update = {}
-    update['Action'] = 'INSERT'
-    update['IPSetDescriptor'] = createDescriptor('IPV4', ipAddr)
+    update['Action'] = action
+    update['IPSetDescriptor'] = create_descriptor('IPV4', ip_address)
+    print str(update)
     return update
 
 
-def createDescriptor(valueType, value):
+def create_descriptor(value_type, value):
     descriptor = {}
-    descriptor['Type'] = valueType
+    descriptor['Type'] = value_type
     descriptor['Value'] = value
     return descriptor
 
 
-def getNewChangeTokenId(client):
-    changeToken = client.get_change_token()
-    return changeToken.get('ChangeToken')
+def get_new_change_token(client):
+    change_token = client.get_change_token()
+    return change_token.get('ChangeToken')
 
 
-def updateIpSet(client, ipSetId, ipAddr):
-    changeTokenId = getNewChangeTokenId(client)
-    response = client.update_ip_set(
-        IPSetId=ipSetId,
-        ChangeToken=changeTokenId,
-        Updates=[
-            {
-                'Action': 'INSERT',
-                'IPSetDescriptor': {
-                    'Type': 'IPV4',
-                    'Value': ipAddr
-                }
-            },
-        ]
-    )
-    print 'Updated IP set'
-    return
+def get_ip_set(client, ip_set_id):
+    return client.get_ip_set(IPSetId=ip_set_id)
 
 
-def updateIpSetBulk(client, ipSetId, updates):
-    print 'Batch Size: ' + str(len(updates))
-    changeTokenId = getNewChangeTokenId(client)
-    response = client.update_ip_set(
-        IPSetId=ipSetId,
-        ChangeToken=changeTokenId,
+def remove_ip_set_entries(client, ip_set_id):
+    print 'DELETING IP SET ENTRIES'
+    list_ip_set = get_ip_set(client, ip_set_id)
+    count = 0
+    update_list = []
+    for ip_set in list_ip_set.get('IPSet').get('IPSetDescriptors'):
+        count += 1
+        update_list.append(create_update(ip_set.get("Value"), 'DELETE'))
+    batch_update(client, ip_set_id, update_list)
+
+
+# Updates the ip set in a batch
+def update_ip_set_bulk(client, ip_set_id, updates):
+    change_token_id = get_new_change_token(client)
+    client.update_ip_set(
+        IPSetId=ip_set_id,
+        ChangeToken=change_token_id,
         Updates=updates
     )
-    return
 
 
-def getConfigParser():
+def get_config_parser():
     config = configparser.ConfigParser()
     config.read("converter.conf")
     return config
 
 
-def getBotoClient():
+def get_boto_client():
     return boto3.client('waf-regional')
 
 
-def traverseListAndUpdateIpSetBulk(client, ipSetId):
+def insert_into_ip_set_from_drop_list(client, ip_set_id):
+    print 'CREATING IP SET ENTRIES'
     count = 0
     # get url and fetch content
-    url = config['DEFAULT']['DropListUrl']
+    url = get_config_parser()['DEFAULT']['DropListUrl']
     r = requests.get(url)
     lines = r.content.splitlines()
 
-    updatesList = []
+    update_list = []
     for line in lines:
         if line[0] != ';':
             cidr = line.split(';')[0]
-            cidrSplit = cidr.split('/')
-            cidrRange = int(cidrSplit[1])
+            cidr_split = cidr.split('/')
+            cidr_range = int(cidr_split[1])
 
-            if cidrRange <= 8:
-                cidrRange = 8
-            elif cidrRange <= 16:
-                cidrRange = 16
-            elif cidrRange <= 24:
-                cidrRange = 24
+            if cidr_range <= 8:
+                cidr_range = 8
+            elif cidr_range <= 16:
+                cidr_range = 16
+            elif cidr_range <= 24:
+                cidr_range = 24
             else:
-                cidrRange = 32
+                cidr_range = 32
 
             net = IPNetwork(cidr)
-            subnets = net.subnet(cidrRange)
+            subnets = net.subnet(cidr_range)
             for subnet in subnets:
                 count += 1
-                updatesList.append(createUpdate(str(subnet)))
-                print subnet
-    batchUpdate(client, ipSetId, updatesList)
-    return count
+                update_list.append(create_update(str(subnet), 'INSERT'))
+    batch_update(client, ip_set_id, update_list)
+    print 'Inserted: ' + str(count)
 
 
-def batchUpdate(client, ipSetId, updatesList):
-    batchUpdate = []
-    batchCount = 0
-    for update in updatesList:
-        batchUpdate.append(update)
-        batchCount += 1
-        if batchCount == 1000:
-            updateIpSetBulk(client, ipSetId, batchUpdate)
-            batchCount = 0
-            batchUpdate = []
-    updateIpSetBulk(client, ipSetId, batchUpdate)
+def batch_update(client, ip_set_id, updates_list):
+    batch_update_list = []
+    batch_count = 0
+    for update in updates_list:
+        batch_update_list.append(update)
+        batch_count += 1
+        if batch_count == 1000:
+            update_ip_set_bulk(client, ip_set_id, batch_update_list)
+            batch_count = 0
+            batch_update_list = []
+    if len(batch_update_list) > 0:
+        update_ip_set_bulk(client, ip_set_id, batch_update_list)
 
 
-def traverseListAndUpdateIpSet(client, ipSetId):
-    count = 0
-    # get url and fetch content
-    url = config['DEFAULT']['DropListUrl']
-    r = requests.get(url)
-    lines = r.content.splitlines()
-
-    for line in lines:
-        if line[0] != ';':
-            cidr = line.split(';')[0]
-            cidrSplit = cidr.split('/')
-            cidrRange = int(cidrSplit[1])
-
-            if cidrRange <= 8:
-                cidrRange = 8
-            elif cidrRange <= 16:
-                cidrRange = 16
-            elif cidrRange <= 24:
-                cidrRange = 24
-            else:
-                cidrRange = 32
-
-            net = IPNetwork(cidr)
-            subnets = net.subnet(cidrRange)
-            for subnet in subnets:
-                count += 1
-                updateIpSet(client, ipSetId, str(subnet))
-                print subnet
-    return count
+def main():
+    client = get_boto_client()
+    ip_set_id = get_config_parser()['DEFAULT']['IpSetId']
+    remove_ip_set_entries(client, ip_set_id)
+    insert_into_ip_set_from_drop_list(client, ip_set_id)
 
 
 print 'STARTING!!!!'
-
-# configure stuff
-client = getBotoClient()
-config = getConfigParser()
-ipSetId = config['DEFAULT']['IpSetId']
-
-count = 0
-count = traverseListAndUpdateIpSetBulk(client, ipSetId)
-print 'FINISHING TOTAL: ' + str(count)
+main()
+print 'FINISHING'
