@@ -57,7 +57,13 @@ def get_config_parser():
 
 
 def get_boto_client():
-    return boto3.client('waf-regional')
+    profile = get_config_parser()['DEFAULT']['Profile']
+    if profile:
+        print 'Using profile: ' + profile
+        session = boto3.Session(profile_name=profile)
+        return session.client('waf-regional')
+    else:
+        return boto3.client('waf-regional')
 
 
 def insert_into_ip_set_from_drop_list(client, ip_set_id):
