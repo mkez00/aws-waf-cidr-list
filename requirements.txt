@@ -1,0 +1,4 @@
+netaddr
+requests
+configparser
+boto3
