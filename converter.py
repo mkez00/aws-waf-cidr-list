@@ -4,6 +4,14 @@ import configparser
 import boto3
 import sys
 
+def getopts():
+    from sys import argv
+    opts = {}  # Empty dictionary to store key-value pairs.
+    while argv:  # While there are arguments left to parse...
+        if argv[0][0] == '-':  # Found a "-name value" pair.
+            opts[argv[0]] = argv[1]  # Add key and value to the dictionary.
+        argv = argv[1:]  # Reduce the argument list by copying it starting from index 1.
+    return opts
 
 # action = INSERT | DELETE
 def create_update(ip_address, action):
@@ -53,14 +61,19 @@ def update_ip_set_bulk(client, ip_set_id, updates):
 
 def get_config_parser():
     config = configparser.ConfigParser()
-    config.read("converter.conf")
+    configfile = "converter.conf"
+    myargs = getopts()
+    if '-config' in myargs:
+        configfile = str(myargs['-config'])
+    config.read(configfile)
     return config
 
 
 def get_profile():
     profile = get_config_parser()['DEFAULT']['Profile']
-    if len(sys.argv) > 2:
-        profile = str(sys.argv[2])
+    myargs = getopts()
+    if '-profile' in myargs:
+        profile = str(myargs['-profile'])
     return profile
 
 
@@ -123,8 +136,9 @@ def batch_update(client, ip_set_id, updates_list):
 
 def get_ip_set_id():
     ip_set_id = get_config_parser()['DEFAULT']['IpSetId']
-    if len(sys.argv) > 1:
-        ip_set_id = str(sys.argv[1])
+    myargs = getopts()
+    if '-ipsetid' in myargs:
+        ip_set_id = str(myargs['-ipsetid'])
     return ip_set_id
 
 

@@ -20,5 +20,5 @@ Currently for the purposes of my project I use SpamHaus exclusively.  Feel free 
 
 The configuration file contains properties that can be set.  Passing command line arguments can be done as well:
 ```
-python converter.py <IP_SET_GUID> <AWS_CLI_PROFILE>
+python converter.py -ipsetid <IP_SET_GUID> -profile <AWS_CLI_PROFILE> -config <LOCATION_OF_CONF_FILE>
 ```
